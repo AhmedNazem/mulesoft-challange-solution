@@ -1,0 +1,11 @@
+# Example production values. Replace the placeholders before deploying (-Denv=prod).
+http:
+  listener:
+    host: "0.0.0.0"
+    port: "8081"
+backend:
+  protocol: "HTTPS"
+  host: "customer-backend.example.com"
+  port: "443"
+  basePath: "/backend"
+  responseTimeoutMs: "5000"

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- One place that turns every failure into the standard JSON error. -->
+	<!-- Handlers are checked top to bottom: the FIRST match wins, so specific ones come before general ones. -->
+	<!-- Each handler logs, then ONE Transform builds the whole error body and sets httpStatus. -->
+	<!-- Trade-off: each case reads on its own, but the { error: { code, message, correlationId } } shape is repeated in every handler. -->
+	<error-handler name="global-error-handler">
+
+		<on-error-propagate type="APP:VALIDATION" doc:name="Validation failed (400)">
+			<logger level="WARN" doc:name="Log validation failed"
+				message='#["[" ++ correlationId ++ "] validation failed fields=" ++ ((vars.errorDetails map ((d) -> d.field)) joinBy ",")]' />
+			<ee:transform doc:name="400 body + status">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: {
+    code: "VALIDATION_ERROR",
+    message: "Request validation failed.",
+    correlationId: correlationId,
+    details: vars.errorDetails
+  }
+}]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus">400</ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+
+		<on-error-propagate type="HTTP:NOT_FOUND" doc:name="Backend says not found (404)">
+			<logger level="WARN" doc:name="Log not found"
+				message='#["[" ++ correlationId ++ "] customer not found customerId=" ++ vars.customerId]' />
+			<ee:transform doc:name="404 body + status">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: {
+    code: "CUSTOMER_NOT_FOUND",
+    message: "Customer " ++ vars.customerId ++ " was not found.",
+    correlationId: correlationId
+  }
+}]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus">404</ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+
+		<on-error-propagate type="HTTP:TIMEOUT" doc:name="Backend too slow (504)">
+			<logger level="ERROR" doc:name="Log timeout"
+				message='#["[" ++ correlationId ++ "] backend timeout"]' />
+			<ee:transform doc:name="504 body + status">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: {
+    code: "DOWNSTREAM_TIMEOUT",
+    message: "The customer backend did not respond within the configured timeout.",
+    correlationId: correlationId
+  }
+}]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus">504</ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+
+		<on-error-propagate when="#[error.errorType.namespace == 'HTTP']" doc:name="Other backend error (502)">
+			<logger level="ERROR" doc:name="Log backend error"
+				message='#["[" ++ correlationId ++ "] backend error type=" ++ error.errorType.namespace ++ ":" ++ error.errorType.identifier]' />
+			<ee:transform doc:name="502 body + status">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: {
+    code: "DOWNSTREAM_SERVICE_ERROR",
+    message: "The customer backend returned an error.",
+    correlationId: correlationId
+  }
+}]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus">502</ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+
+		<!-- Last: catches everything else. The client never sees the real reason. -->
+		<on-error-propagate type="ANY" doc:name="Anything else (500)">
+			<logger level="ERROR" doc:name="Log unexpected error"
+				message='#["[" ++ correlationId ++ "] unexpected error type=" ++ error.errorType.namespace ++ ":" ++ error.errorType.identifier]' />
+			<ee:transform doc:name="500 body + status">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: {
+    code: "INTERNAL_ERROR",
+    message: "An unexpected error occurred.",
+    correlationId: correlationId
+  }
+}]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus">500</ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+
+	</error-handler>
+
+</mule>

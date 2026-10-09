@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<global-property doc:name="Global Property" doc:id="74d631fa-2d68-425a-90b1-2369a2c18417" name="env" value="dev" />
+	<configuration-properties doc:name="Configuration properties" doc:id="41bf2812-bbe0-4363-b167-3da5f280a65e" file="config-${env}.yaml" />
+	<configuration doc:name="Configuration" defaultErrorHandler-ref="global-error-handler" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="1b681fd1-e450-4e2f-a224-6094a722b72e" >
+		<http:listener-connection host="${http.listener.host}" port="${http.listener.port}" />
+	</http:listener-config>
+	<http:request-config name="Backend_Request_config" doc:name="HTTP Request configuration" doc:id="59e1c0fa-df51-46ae-b48f-f0252f46a638" basePath="${backend.basePath}" responseTimeout="${backend.responseTimeoutMs}" >
+		<http:request-connection protocol="${backend.protocol}" host="${backend.host}" port="${backend.port}" />
+	</http:request-config>
+</mule>
