@@ -18,7 +18,7 @@ It exposes three customer endpoints, calls a downstream backend with the **HTTP 
 | Endpoint | Behaviour | Success | Errors |
 |---|---|---|---|
 | `GET /customers` | List from the mock file. | `200` | `500` |
-| `GET /customers/{customerId}` | Calls the **backend** and maps its shape to the API shape. | `200` | `404`, `502`, `504`, `500` |
+| `GET /customers/{customerId}` | Calls the **backend** and maps its shape to the API shape. | `200` | `404`, `429`, `502`, `504`, `500` |
 | `POST /customers` | Validates the body, returns the created customer. | `201` | `400`, `500` |
 
 Request and response shapes follow the provided examples in [`samples/`](samples).
@@ -27,7 +27,7 @@ Request and response shapes follow the provided examples in [`samples/`](samples
 
 ## 2. Run it
 
-You need **three things**: the mock backend, the Mule app, and a client (curl or Postman).
+You need **three things**: the mock backend, the Mule app, and a client (curl).
 
 ### Prerequisites
 
@@ -85,8 +85,6 @@ curl.exe -i http://localhost:8081/customers/CUST-10001
 curl.exe -i -X POST http://localhost:8081/customers -H "Content-Type: application/json" -d "@samples/requests/create-customer-request.json"
 ```
 
-A [Postman collection](postman/customer-api.postman_collection.json) with assertions is included (`Import`, then select the file; the base URL is the `baseUrl` collection variable).
-
 ---
 
 ## 3. Test scenarios
@@ -99,7 +97,8 @@ The mock backend behaves differently depending on the customer id, so every erro
 | `GET /customers/CUST-10001` | `200` customer | `200` mapped customer | |
 | `GET /customers/CUST-99999` | `404` | `404` | `CUSTOMER_NOT_FOUND` |
 | `GET /customers/CUST-BAD` | `400` | `502` | `DOWNSTREAM_SERVICE_ERROR` |
-| `GET /customers/CUST-RATE` | `429` | `502` | `DOWNSTREAM_SERVICE_ERROR` |
+| `GET /customers/CUST-RATE` | `429` | `429` | `RATE_LIMITED` |
+| `GET /customers/CUST-GARBAGE` | `200` with invalid JSON | `500` (known limitation, see section 6) | `INTERNAL_ERROR` |
 | `GET /customers/CUST-ERR` | `500` | `502` | `DOWNSTREAM_SERVICE_ERROR` |
 | `GET /customers/CUST-SLOW` | waits 10 s | `504` after about 3 s | `DOWNSTREAM_TIMEOUT` |
 | Stop the backend, then `GET /customers/CUST-10001` | connection refused | `502` | `DOWNSTREAM_SERVICE_ERROR` |
@@ -144,6 +143,7 @@ One global error handler ([`error-handling.xml`](src/main/mule/error-handling.xm
 | `APP:VALIDATION` (raised by the validation step) | 400 | `VALIDATION_ERROR` |
 | `HTTP:NOT_FOUND` (backend said 404) | 404 | `CUSTOMER_NOT_FOUND` |
 | `HTTP:TIMEOUT` | 504 | `DOWNSTREAM_TIMEOUT` |
+| `HTTP:TOO_MANY_REQUESTS` (backend 429) | 429 | `RATE_LIMITED` |
 | any other `HTTP:*` error (backend 4xx/5xx, connection refused) | 502 | `DOWNSTREAM_SERVICE_ERROR` |
 | anything else | 500 | `INTERNAL_ERROR` |
 
@@ -183,7 +183,6 @@ The HTTP Request connector **replaces** `payload` and `attributes` with the back
 │   └── log4j2.xml
 ├── mock-backend/                    Node.js mock of the downstream customer service
 ├── samples/requests, samples/responses   the provided example contract
-└── postman/                         Postman collection
 ```
 
 ---
@@ -198,5 +197,5 @@ Kept simple on purpose: the brief allows an in-memory list and no database.
 | `customerId` on create is random | Collisions are possible | Counter or database sequence |
 | Unknown routes or wrong HTTP method | Mule's plain-text `404`/`405` | APIkit router with an API spec |
 | Malformed JSON request body | Likely reaches the generic handler (`500`) | Map the parse error to `400` |
-| Backend returns invalid JSON (`CUST-GARBAGE`) | Likely reaches the generic handler (`500`) | Map to `502` |
+| Backend returns invalid JSON (`CUST-GARBAGE`, mock only) | Likely reaches the generic handler (`500`) | Map to `502` |
 | No authentication or pagination | | API Manager policy; `limit`/`offset` |

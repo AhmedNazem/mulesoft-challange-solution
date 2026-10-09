@@ -80,6 +80,29 @@ output application/json
 			</ee:transform>
 		</on-error-propagate>
 
+		<!-- Backend rate limit: the caller can wait and retry, so the status is passed through. Must stay above the general HTTP (502) handler. -->
+		<on-error-propagate type="HTTP:TOO_MANY_REQUESTS" doc:name="Backend rate limited (429)">
+			<logger level="WARN" doc:name="Log rate limited"
+				message='#["[" ++ correlationId ++ "] backend rate limited customerId=" ++ vars.customerId]' />
+			<ee:transform doc:name="429 body + status">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  error: {
+    code: "RATE_LIMITED",
+    message: "Too many requests. Please try again later.",
+    correlationId: correlationId
+  }
+}]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus">429</ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+
 		<on-error-propagate when="#[error.errorType.namespace == 'HTTP']" doc:name="Other backend error (502)">
 			<logger level="ERROR" doc:name="Log backend error"
 				message='#["[" ++ correlationId ++ "] backend error type=" ++ error.errorType.namespace ++ ":" ++ error.errorType.identifier]' />
