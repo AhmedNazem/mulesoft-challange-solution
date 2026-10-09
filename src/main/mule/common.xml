@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+	<!-- Shared by every endpoint. Logs method and path only: never the query string or the body (personal data). -->
+	<!-- Must be called first in a flow, while "attributes" still belongs to the HTTP listener. -->
+	<sub-flow name="log-request-start-subflow">
+		<logger level="INFO" doc:name="Log request start"
+			message='#["[" ++ correlationId ++ "] " ++ attributes.method ++ " " ++ attributes.requestPath ++ " started"]' />
+	</sub-flow>
+</mule>
