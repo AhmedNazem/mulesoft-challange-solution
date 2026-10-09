@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- The three endpoints. Each listener reads the HTTP status from vars.httpStatus (set by the error handler or the flow). -->
+
+	<!-- GET /customers : list from the mock data file -->
+	<flow name="get-customers-flow">
+		<http:listener config-ref="HTTP_Listener_config" path="/customers" allowedMethods="GET" doc:name="Listener">
+			<http:response statusCode="#[vars.httpStatus default 200]">
+				<http:headers><![CDATA[#[{ 'X-Correlation-ID': correlationId }]]]></http:headers>
+			</http:response>
+			<http:error-response statusCode="#[vars.httpStatus default 500]">
+				<http:body><![CDATA[#[payload]]]></http:body>
+				<http:headers><![CDATA[#[{ 'X-Correlation-ID': correlationId }]]]></http:headers>
+			</http:error-response>
+		</http:listener>
+		<flow-ref name="log-request-start-subflow" doc:name="Log start" />
+		<flow-ref name="get-all-customers-subflow" doc:name="Get all customers" />
+		<ee:transform doc:name="Build list response">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import toSummary from modules::CustomerMapper
+output application/json
+var wanted=upper(attributes.queryParams.status default "")
+var filtered=if(isEmpty(wanted))payload 
+		   else payload filter((c)->c.status==wanted)
+---
+{
+  customers: filtered map ((c) -> toSummary(c)),
+  count: sizeOf(filtered)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log end"
+			message='#["[" ++ correlationId ++ "] list returned"]' />
+	</flow>
+
+	<!-- GET /customers/{customerId} : detail from the backend (HTTP Request) -->
+	<flow name="get-customer-by-id-flow">
+		<http:listener config-ref="HTTP_Listener_config" path="/customers/{customerId}" allowedMethods="GET" doc:name="Listener">
+			<http:response statusCode="#[vars.httpStatus default 200]">
+				<http:headers><![CDATA[#[{ 'X-Correlation-ID': correlationId }]]]></http:headers>
+			</http:response>
+			<http:error-response statusCode="#[vars.httpStatus default 500]">
+				<http:body><![CDATA[#[payload]]]></http:body>
+				<http:headers><![CDATA[#[{ 'X-Correlation-ID': correlationId }]]]></http:headers>
+			</http:error-response>
+		</http:listener>
+		<flow-ref name="log-request-start-subflow" doc:name="Log start" />
+		<!-- Save the id NOW: the HTTP Request below replaces payload and attributes, and the error handler needs the id. -->
+		<set-variable variableName="customerId" value="#[attributes.uriParams.customerId]" doc:name="Save customerId" />
+		<flow-ref name="get-customer-from-backend-subflow" doc:name="Get customer from backend" />
+		<ee:transform doc:name="Map backend shape to API shape">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import toCustomerDetail from modules::CustomerMapper
+output application/json
+---
+toCustomerDetail(payload)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log end"
+			message='#["[" ++ correlationId ++ "] customer returned customerId=" ++ vars.customerId]' />
+	</flow>
+
+	<!-- POST /customers : validate, then build the 201 response (not stored yet) -->
+	<flow name="create-customer-flow">
+		<http:listener config-ref="HTTP_Listener_config" path="/customers" allowedMethods="POST" doc:name="Listener">
+			<http:response statusCode="#[vars.httpStatus default 200]">
+				<http:headers><![CDATA[#[{ 'X-Correlation-ID': correlationId }]]]></http:headers>
+			</http:response>
+			<http:error-response statusCode="#[vars.httpStatus default 500]">
+				<http:body><![CDATA[#[payload]]]></http:body>
+				<http:headers><![CDATA[#[{ 'X-Correlation-ID': correlationId }]]]></http:headers>
+			</http:error-response>
+		</http:listener>
+		<flow-ref name="log-request-start-subflow" doc:name="Log start" />
+		<flow-ref name="validate-customer-request-subflow" doc:name="Validate request" />
+		<set-variable variableName="newCustomerId" value='#["CUST-" ++ ((randomInt(90000) + 10000) as String)]' doc:name="Generate customerId" />
+		<set-variable variableName="httpStatus" value="#[201]" doc:name="status 201" />
+		<ee:transform doc:name="Build 201 response">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import toCreatedCustomer from modules::CustomerMapper
+output application/json skipNullOn="everywhere"
+---
+toCreatedCustomer(
+  payload,
+  vars.newCustomerId,
+  (now() >> "UTC") as String { format: "yyyy-MM-dd'T'HH:mm:ss'Z'" }
+)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log end"
+			message='#["[" ++ correlationId ++ "] customer created customerId=" ++ vars.newCustomerId]' />
+	</flow>
+</mule>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Data access: where customers come from. Swap this file's contents to change the data source. -->
+
+	<!-- Returns the full customer list (an array) read from the mock data file. -->
+	<sub-flow name="get-all-customers-subflow">
+		<ee:transform doc:name="Read customers file">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+readUrl("classpath://mock-data/customers.json", "application/json")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+
+	<!-- Asks the backend for one customer. Needs vars.customerId (saved before this call). -->
+	<sub-flow name="get-customer-from-backend-subflow">
+		<logger level="INFO" doc:name="Log backend call"
+			message='#["[" ++ correlationId ++ "] calling backend customerId=" ++ vars.customerId]' />
+		<http:request method="GET" config-ref="Backend_Request_config" path="/customers/{customerId}"
+			sendCorrelationId="ALWAYS" doc:name="GET backend customer">
+			<http:headers><![CDATA[#[{ 'Accept': 'application/json' }]]]></http:headers>
+			<http:uri-params><![CDATA[#[{ customerId: vars.customerId }]]]></http:uri-params>
+		</http:request>
+	</sub-flow>
+
+	<!-- Checks the POST body. Stores problems in vars.errorDetails and raises APP:VALIDATION if there are any. -->
+	<sub-flow name="validate-customer-request-subflow">
+		<ee:transform doc:name="Collect validation errors">
+			<ee:variables>
+				<ee:set-variable variableName="errorDetails"><![CDATA[%dw 2.0
+import validateCustomer from modules::CustomerValidator
+output application/java
+---
+validateCustomer(payload)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Any validation errors?">
+			<when expression="#[!isEmpty(vars.errorDetails)]">
+				<raise-error type="APP:VALIDATION" description="Request validation failed" doc:name="Raise APP:VALIDATION" />
+			</when>
+		</choice>
+	</sub-flow>
+</mule>
