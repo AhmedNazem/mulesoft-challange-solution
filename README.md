@@ -17,7 +17,7 @@ It exposes three customer endpoints, calls a downstream backend with the **HTTP 
 
 | Endpoint | Behaviour | Success | Errors |
 |---|---|---|---|
-| `GET /customers` | List from the mock file. Optional `?status=ACTIVE` filter. | `200` | `500` |
+| `GET /customers` | List from the mock file. | `200` | `500` |
 | `GET /customers/{customerId}` | Calls the **backend** and maps its shape to the API shape. | `200` | `404`, `502`, `504`, `500` |
 | `POST /customers` | Validates the body, returns the created customer. | `201` | `400`, `500` |
 

@@ -29,13 +29,10 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 				<ee:set-payload><![CDATA[%dw 2.0
 import toSummary from modules::CustomerMapper
 output application/json
-var wanted=upper(attributes.queryParams.status default "")
-var filtered=if(isEmpty(wanted))payload 
-		   else payload filter((c)->c.status==wanted)
 ---
 {
-  customers: filtered map ((c) -> toSummary(c)),
-  count: sizeOf(filtered)
+  customers: payload map ((c) -> toSummary(c)),
+  count: sizeOf(payload)
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
