@@ -1,0 +1,21 @@
+{
+  "customers": [
+    {
+      "customerId": "CUST-10001",
+      "firstName": "Ahmed",
+      "lastName": "Nadhim",
+      "email": "ahmed.nadhim@example.com",
+      "mobileNumber": "+9647701234567",
+      "status": "ACTIVE"
+    },
+    {
+      "customerId": "CUST-10002",
+      "firstName": "Sara",
+      "lastName": "Ali",
+      "email": "sara.ali@example.com",
+      "mobileNumber": "+9647812345678",
+      "status": "ACTIVE"
+    }
+  ],
+  "count": 2
+}

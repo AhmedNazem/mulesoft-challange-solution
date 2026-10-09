@@ -1,0 +1,15 @@
+{
+  "customerId": "CUST-10001",
+  "firstName": "Ahmed",
+  "lastName": "Nadhim",
+  "email": "ahmed.nadhim@example.com",
+  "mobileNumber": "+9647701234567",
+  "dateOfBirth": "1998-05-14",
+  "address": {
+    "city": "Baghdad",
+    "country": "Iraq",
+    "postalCode": "10001"
+  },
+  "status": "ACTIVE",
+  "createdAt": "2026-10-07T07:30:00Z"
+}

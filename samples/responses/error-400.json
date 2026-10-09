@@ -1,0 +1,17 @@
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed.",
+    "correlationId": "f52c5a87-b4d4-4ee8-a4f3-588c3d64171b",
+    "details": [
+      {
+        "field": "lastName",
+        "message": "must not be blank"
+      },
+      {
+        "field": "email",
+        "message": "must be a valid email address"
+      }
+    ]
+  }
+}

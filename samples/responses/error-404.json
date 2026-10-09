@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "CUSTOMER_NOT_FOUND",
+    "message": "Customer CUST-99999 was not found.",
+    "correlationId": "f52c5a87-b4d4-4ee8-a4f3-588c3d64171b"
+  }
+}
