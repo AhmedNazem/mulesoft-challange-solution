@@ -15,21 +15,6 @@ It exposes three customer endpoints, calls a downstream backend with the **HTTP 
 
 ## 1. What it does
 
-```mermaid
-flowchart LR
-    C[Client] -->|"GET /customers<br/>GET /customers/{id}<br/>POST /customers"| L
-
-    subgraph A ["Customer API (Mule app, port 8081)"]
-      direction TB
-      L[HTTP Listener] --> F[Flow]
-      F --> DW["DataWeave<br/>validate and map"]
-      F -. on error .-> EH["Global error handler<br/>standard JSON error"]
-    end
-
-    F -->|"list"| M[("mock-data/<br/>customers.json")]
-    F -->|"GET /customers/{id}<br/>HTTP Request, timeout 3 s"| B["Mock backend<br/>Node.js, port 3000"]
-```
-
 | Endpoint | Behaviour | Success | Errors |
 |---|---|---|---|
 | `GET /customers` | List from the mock file. Optional `?status=ACTIVE` filter. | `200` | `500` |
